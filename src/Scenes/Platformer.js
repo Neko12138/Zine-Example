@@ -50,9 +50,8 @@ class Platformer extends Phaser.Scene {
             return tile.properties.water == true;
         });
 
-        ////////////////////
-        // TODO: put water bubble particle effect here
-                this.waterEmitter = this.add.particles(0, 0, "kenny-particles", {
+
+        this.waterEmitter = this.add.particles(0, 0, "kenny-particles", {
             frame: "circle_01.png",
             speed: { min: -15, max: 15 } ,
             accelerationY: -100,
@@ -62,11 +61,9 @@ class Platformer extends Phaser.Scene {
             emitting: false
         });
         // It's OK to have it start running
-        ////////////////////
-        
 
         this.time.addEvent({
-                       // 每 1000 毫秒
+
             callback: () => {
                 this.waterTiles.forEach(tile => {
                     this.waterEmitter.emitParticleAt(tile.getCenterX(), tile.getCenterY() + 9); 
@@ -75,7 +72,7 @@ class Platformer extends Phaser.Scene {
             },
             delay: 500, 
             callbackScope: this,
-            loop: true              // 循环执行
+            loop: true  
         });
         
         // set up player avatar
@@ -85,30 +82,36 @@ class Platformer extends Phaser.Scene {
         // Enable collision handling
         this.physics.add.collider(my.sprite.player, this.groundLayer);
 
-        // TODO: create coin collect particle effect here
-            // Create coin collect particles (not running initially)
+        //set up particles for get coins
         this.coinEmitter = this.add.particles(0, 0, "kenny-particles", {
+            //the image for particles
             frame: "star_02.png",
+            //The discrete velocity of a particle will randomly scatter in all directions before a direction is specified.
             speed: { min: -150, max: 150 },
+            //Particle size
             scale: { start: 0.1, end: 0 },
+            //The duration of the particle after it is emitted.
             lifespan: 1500,
+            //The number of particles emitted when triggered
+            //!!! It is recommended to keep the amount less than three digits. 
+            //and never try to raise the amount to three digits.
             quantity: 3,
+            //Whether to emit when creating this particle effect. 
+            // Defaults to true, but it is generally recommended to set it to false.
             emitting: false
         });
-        // Important: make sure it's not running
-
-        
 
         // Coin collision handler
         this.physics.add.overlap(my.sprite.player, this.coinGroup, (obj1, obj2) => {
             obj2.destroy(); // remove coin on overlap
             this.coinEmitter.emitParticleAt(obj2.x, obj2.y);
-
-
-            ////////////////////
-            // TODO: start the coin collect particle effect here
-            ////////////////////
-
+            //We want the corresponding particle effect to be triggered only when the player collects the coin.
+            //So it is appropriate to put the emit of the particle effect here
+            //Note that the x and y axes are not assigned new coordinates.
+            //So when you do not set them, or set them to 0,
+            //it will release particles in the center of the map (actually the upper left corner of the screen).
+            //But remember that emitParticleAt will only trigger the effect once, 
+            //it will not be released repeatedly at the same location.
         });
 
         // set up Phaser-provided cursor key input
@@ -121,8 +124,6 @@ class Platformer extends Phaser.Scene {
             this.physics.world.drawDebug = this.physics.world.drawDebug ? false : true
             this.physics.world.debugGraphic.clear()
         }, this);
-
-        // TODO: Add movement vfx here
         
 
         // Simple camera to follow player
@@ -130,6 +131,21 @@ class Platformer extends Phaser.Scene {
         this.cameras.main.startFollow(my.sprite.player, true, 0.25, 0.25); // (target, [,roundPixels][,lerpX][,lerpY])
         this.cameras.main.setDeadzone(50, 50);
         this.cameras.main.setZoom(this.SCALE);
+
+        //Using "my" instead of "this" still works
+        my.vfx.walking = this.add.particles(0, 0, "kenny-particles", {
+            frame: ['star_01.png', 'star_02.png' ],
+            scale: {start: 0.03, end: 0.06},
+            lifespan: 150,
+            //Particle visibility
+            //Here is a fade-out effect over the particle's lifetime
+            //The reverse can also be a fade-in
+            alpha: {start: 1, end: 0.1}, 
+            
+        });
+        //This method can also be used to make the particle effect not emit directly when it is created
+        //But it is more recommended to use "emitting: false"
+        my.vfx.walking.stop();
         
 
     }
@@ -139,26 +155,42 @@ class Platformer extends Phaser.Scene {
             my.sprite.player.setAccelerationX(-this.ACCELERATION);
             my.sprite.player.resetFlip();
             my.sprite.player.anims.play('walk', true);
-            // TODO: add particle following code here
+
+            
+            my.vfx.walking.startFollow(my.sprite.player, my.sprite.player.displayWidth/2-10, my.sprite.player.displayHeight/2-1);
+            //Here you can set the particle effect to follow a specific target (sprite object).
+            //The x and y here will be based on the sprite's coordinate axis
+            //That is, if you don't set it, or set it to 0, it will follow the center of the sprite.
+            //It should be noted that although startFollow has "start" it cannot start the particle effect.
+            if (my.sprite.player.body.blocked.down) {
+                //We want that there will be smoke under the feet only when the player's character is blocked, so we have to set an if
+                //But even if there is no if, it is completely fine to put it directly into start.
+                my.vfx.walking.start();
+            }
 
         } else if(cursors.right.isDown) {
             my.sprite.player.setAccelerationX(this.ACCELERATION);
             my.sprite.player.setFlip(true, false);
             my.sprite.player.anims.play('walk', true);
-            // TODO: add particle following code here
+
+
+            my.vfx.walking.startFollow(my.sprite.player, my.sprite.player.displayWidth/2-10, my.sprite.player.displayHeight/2-1);
+            
+            if (my.sprite.player.body.blocked.down) {
+
+                my.vfx.walking.start();
+            }
 
         } else {
-            // Set acceleration to 0 and have DRAG take over
             my.sprite.player.setAccelerationX(0);
             my.sprite.player.setDragX(this.DRAG);
             my.sprite.player.anims.play('idle');
-            // TODO: have the vfx stop playing
+
+            my.vfx.walking.stop();
         }
 
         
 
-        // player jump
-        // note that we need body.blocked rather than body.touching b/c the former applies to tilemap tiles and the latter to the "ground"
         if(!my.sprite.player.body.blocked.down) {
             my.sprite.player.anims.play('jump');
         }
